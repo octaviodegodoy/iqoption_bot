@@ -5,6 +5,7 @@ import logging, json, sys, time
 from talib._ta_lib import SMA
 import numpy as np
 
+
 API = IQ_Option(os.environ.get('IQ_USER'), os.environ.get('IQ_PASSWORD'))
 API.connect()
 
