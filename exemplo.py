@@ -2,7 +2,6 @@ from iqoptionapi.stable_api import IQ_Option
 import os
 import time
 import logging, json, sys, time
-
 from talib._ta_lib import SMA
 import numpy as np
 
