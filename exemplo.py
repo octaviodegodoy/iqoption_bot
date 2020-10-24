@@ -1,11 +1,12 @@
 from iqoptionapi.stable_api import IQ_Option
+import os
 import time
 import logging, json, sys, time
 
 from talib._ta_lib import SMA
 import numpy as np
 
-API = IQ_Option('email', 'pwd')
+API = IQ_Option(os.environ.get('IQ_USER'), os.environ.get('IQ_PASSWORD'))
 API.connect()
 
 API.change_balance('PRACTICE')
