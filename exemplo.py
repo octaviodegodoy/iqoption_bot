@@ -2,9 +2,8 @@ from iqoptionapi.stable_api import IQ_Option
 import os
 import time
 import logging, json, sys, time
-from talib._ta_lib import SMA
+from talib.abstract import SMA
 import numpy as np
-
 
 API = IQ_Option(os.environ.get('IQ_USER'), os.environ.get('IQ_PASSWORD'))
 API.connect()
@@ -42,25 +41,20 @@ def get_indicator(par, timeframe, ind_name):
                 return dado['value']
 
 
-def preco_atual(par):
+def processa_operacao_ativo(par):
     API.start_candles_stream(par, 60, 280)
+    velas = API.get_realtime_candles(par, 60)
+    preco_atual = get_current_price(velas)
+    sma_3 = calcula_sma(velas, 3)
+    sma_8 = calcula_sma(velas, 8)
+    sma_20 = calcula_sma(velas, 20)
+    if sma_3 and sma_8 and sma_20:
+        sma_3_sma_8_perc = sma_3/sma_8
+        sma_8_sma_20_perc = sma_8/sma_20
+        if sma_3_sma_8_perc > 1 and sma_8_sma_20_perc > 1 and preco_atual > sma_3:
+              print('Valor SMA 20,8,3 ' + str(sma_3_sma_8_perc) + ',' + str(sma_8_sma_20_perc))
+              executa_call(par)
     time.sleep(1)
-    while True:
-        velas = API.get_realtime_candles(par, 60)
-        preco_atual = get_current_price(velas)
-        sma_3 = calcula_sma(velas, 3)
-        sma_8 = calcula_sma(velas, 8)
-        sma_20 = calcula_sma(velas, 20)
-        if sma_3 and sma_8 and sma_20:
-            print('Valor SMA 20,8,3 '
-                  + str(sma_20) + ',' + str(sma_8) + ',' + str(sma_3)
-                  + ' valor ask ' + str(preco_atual))
-        """        for vela in velas:
-         #   preco_ask = velas[vela]['ask']
-         #   preco_bid = velas[vela]['bid']
-         #verifica_preco_indicador(par, preco_ask) 
-        """
-        time.sleep(1)
     API.stop_candles_stream(par, 60)
 
 
@@ -84,9 +78,7 @@ def calcula_sma(velas, periodo):
         valores['volume'] = np.append(valores['volume'], velas[x]['volume'])
 
     calculo_sma = SMA(valores, timeperiod=periodo)
-    return calculo_sma[periodo-1]
-   # sys.exit()
-
+    return calculo_sma[periodo - 1]
 
 
 def executa_call(paridade):
@@ -114,22 +106,20 @@ def executa_call(paridade):
         print('\nERRO AO REALIZAR OPERAÇÃO\n\n')
 
 
-preco_atual('AUDUSD')
 
-"""
+
 
 par = API.get_all_open_time()
 
-for paridade in par[TURBO]:
-    if par[TURBO][paridade][OPEN]:
-        ema5_value = get_indicator(paridade, TF, EMA5)
-        ema10_value = get_indicator(paridade, TF, EMA10)
-        ema20_value = get_indicator(paridade, TF, EMA20)
-        if ema5_value and ema10_value and ema20_value:
+while True:
+    for paridade in par[TURBO]:
+        if par[TURBO][paridade][OPEN]:
+            print('Verificando sinal ativo ' + paridade)
+            processa_operacao_ativo(paridade)
             print('Paridade TURBO disponivel ' + paridade + ' payout : ' + str(
-                payout(paridade, TURBO, TF)) + ' EMA 5 : ' + str(ema5_value) + ' EMA 10 : ' + str(
-                ema10_value) + ' EMA 20 : ' + str(ema20_value))
+                payout(paridade, TURBO, TF)))
 
+"""
 for paridade in par[DIGITAL]:
     if par[DIGITAL][paridade][OPEN]:
         ema5_value = get_indicator(paridade, TF, EMA5)
