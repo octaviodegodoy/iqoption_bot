@@ -1,14 +1,21 @@
 from iqoptionapi.stable_api import IQ_Option
 import os
-import time
 import logging, json, sys, time
-from talib.abstract import SMA, BBANDS, MA_Type
+
+from talib._ta_lib import MA_Type
+from talib.abstract import *
 import numpy as np
 
 API = IQ_Option(os.environ.get('IQ_USER'), os.environ.get('IQ_PASSWORD'))
 API.connect()
 
 API.change_balance('PRACTICE')
+
+if API.check_connect():
+    print('\n\n Conectado com sucesso !!')
+else:
+    print('\n Erro ao conectar !')
+    sys.exit()
 
 TURBO = 'turbo'
 DIGITAL = 'digital'
@@ -45,13 +52,14 @@ def processa_operacao_ativo(par):
     API.start_candles_stream(par, 60, 280)
     velas = API.get_realtime_candles(par, 60)
     preco_atual = get_current_price(velas)
+    up, mid, low = calcula_bollinger(velas, 8)
     sma_3 = calcula_sma(velas, 3)
     sma_8 = calcula_sma(velas, 8)
     sma_20 = calcula_sma(velas, 20)
     if sma_3 and sma_8 and sma_20:
         sma_3_sma_8_perc = sma_3 / sma_8
         sma_8_sma_20_perc = sma_8 / sma_20
-        if sma_3_sma_8_perc < 1 and sma_8_sma_20_perc > 1 and preco_atual < sma_3:
+        if sma_3_sma_8_perc < 1 and sma_8_sma_20_perc > 1 and preco_atual < sma_3 and preco_atual < low:
             print('Valor SMA 20,8,3 ' + str(sma_3_sma_8_perc) + ',' + str(sma_8_sma_20_perc))
             executa_call(par)
     time.sleep(1)
@@ -66,7 +74,7 @@ def get_current_price(velas):
     return preco_atual
 
 
-def calcula_bollinger(velas):
+def calcula_bollinger(velas, periodo):
     valores = {'open': np.array([]), 'high': np.array([]), 'low': np.array([]), 'close': np.array([]),
                'volume': np.array([])}
 
@@ -76,8 +84,14 @@ def calcula_bollinger(velas):
         valores['low'] = np.append(valores['low'], velas[x]['min'])
         valores['close'] = np.append(valores['close'], velas[x]['close'])
         valores['volume'] = np.append(valores['volume'], velas[x]['volume'])
-
-    upper, middle, lower = BBANDS(valores['close'], matype=MA_Type.T3)
+    bbands = Function('bbands', valores)
+    bbands.parameters = {
+        'timeperiod': periodo,
+        'nbdevup': 2.0,
+        'nbdevdn': 2.0
+    }
+    upper, middle, lower = bbands()
+    return upper[-1], middle[-1], lower[-1]
 
 
 def calcula_sma(velas, periodo):
@@ -92,7 +106,7 @@ def calcula_sma(velas, periodo):
         valores['volume'] = np.append(valores['volume'], velas[x]['volume'])
 
     calculo_sma = SMA(valores, timeperiod=periodo)
-    return calculo_sma[periodo - 1]
+    return calculo_sma[-1]
 
 
 def executa_call(paridade):
