@@ -2,7 +2,7 @@ from iqoptionapi.stable_api import IQ_Option
 import os
 import time
 import logging, json, sys, time
-from talib.abstract import SMA
+from talib.abstract import SMA, BBANDS, MA_Type
 import numpy as np
 
 API = IQ_Option(os.environ.get('IQ_USER'), os.environ.get('IQ_PASSWORD'))
@@ -49,11 +49,11 @@ def processa_operacao_ativo(par):
     sma_8 = calcula_sma(velas, 8)
     sma_20 = calcula_sma(velas, 20)
     if sma_3 and sma_8 and sma_20:
-        sma_3_sma_8_perc = sma_3/sma_8
-        sma_8_sma_20_perc = sma_8/sma_20
-        if sma_3_sma_8_perc > 1 and sma_8_sma_20_perc > 1 and preco_atual > sma_3:
-              print('Valor SMA 20,8,3 ' + str(sma_3_sma_8_perc) + ',' + str(sma_8_sma_20_perc))
-              executa_call(par)
+        sma_3_sma_8_perc = sma_3 / sma_8
+        sma_8_sma_20_perc = sma_8 / sma_20
+        if sma_3_sma_8_perc < 1 and sma_8_sma_20_perc > 1 and preco_atual < sma_3:
+            print('Valor SMA 20,8,3 ' + str(sma_3_sma_8_perc) + ',' + str(sma_8_sma_20_perc))
+            executa_call(par)
     time.sleep(1)
     API.stop_candles_stream(par, 60)
 
@@ -64,6 +64,20 @@ def get_current_price(velas):
             preco_ativo = velas[vela]
     preco_atual = (preco_ativo['ask'] + preco_ativo['bid']) / 2
     return preco_atual
+
+
+def calcula_bollinger(velas):
+    valores = {'open': np.array([]), 'high': np.array([]), 'low': np.array([]), 'close': np.array([]),
+               'volume': np.array([])}
+
+    for x in velas:
+        valores['open'] = np.append(valores['open'], velas[x]['open'])
+        valores['high'] = np.append(valores['high'], velas[x]['max'])
+        valores['low'] = np.append(valores['low'], velas[x]['min'])
+        valores['close'] = np.append(valores['close'], velas[x]['close'])
+        valores['volume'] = np.append(valores['volume'], velas[x]['volume'])
+
+    upper, middle, lower = BBANDS(valores['close'], matype=MA_Type.T3)
 
 
 def calcula_sma(velas, periodo):
@@ -104,9 +118,6 @@ def executa_call(paridade):
                 break
     else:
         print('\nERRO AO REALIZAR OPERAÇÃO\n\n')
-
-
-
 
 
 par = API.get_all_open_time()
